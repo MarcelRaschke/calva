@@ -50,7 +50,12 @@ Go to the [documentation](https://calva.io/) to find info on how to connect Calv
 * Structural Editing (via [Paredit](https://calva.io/paredit/))
 * [Linting](https://calva.io/linting/)
 * Intellisense
-* Go to / Peek at definition
+* Go to / peek at definition
+* Find all references
+* Rename symbol
+* Change all occurrences
+* References code lens (enable in settings)
+* Outline view
 * View doc strings on hover
 * View function signatures on hover, including help with knowing which argument you are typing
 * [Debugger](https://calva.io/debugger/)
@@ -66,11 +71,11 @@ Go to the [documentation](https://calva.io/) to find info on how to connect Calv
 
 The gif demos several more features, apart from the in-comment evaluation, like:
 
-* signature help while typing function calls
-* evaluation result display is a bit sticky (so you can examine several evaluations at once)
-* there is a richer display of results in the hover of the evaluated expression. (From where you can also copy the results to the clipboard)
-  * Edit: This feature has been removed in favor of using peek definition. See [here](https://calva.io/output/#peek-at-results). This decision was made due to high memory usage from storing results, but may be added back at some point if it's desired by many users over the peek definition feature.
-* some [structural editing](https://calva.io/paredit/)
+* Signature help while typing function calls
+* Evaluation result display is a bit sticky (so you can examine several evaluations at once)
+* There is a richer display of results in the hover of the evaluated expression. (From where you can also copy the results to the clipboard)
+  * Edit: This feature has been removed in favor of using peek definition. See [here](https://calva.io/output/#peek-at-results). This decision was made due to high memory usage from storing results, but may be added back at some point if it's desired by many users over the peek definition feature. Please [let us know here](https://github.com/BetterThanTomorrow/calva/issues/736) if you'd like this added back.
+* Some [structural editing](https://calva.io/paredit/)
 
 ### Demo: Signature Help, while Typing
 
@@ -93,6 +98,14 @@ It is pretty educational using the signature help hover to see which argument yo
 ### Demo: switch between `clj` and `cljs` repl sessions for `cljc` files
 
 ![CLJC repl switching](assets/howto/cljc-clj-cljs.gif)
+
+### Demo: References code lens (enable in settings)
+
+![References code lens](assets/howto/references-code-lens.gif)
+
+### Demo: Outline
+
+![Outline view](assets/howto/outline-view.gif)
 
 ## How to contribute
 
@@ -118,7 +131,10 @@ The following people are helping to keep Calva maintained and improved by sponso
 
 _Companies that benefit from Calva's existence and see it as an important piece of the Clojure and ClojureScript ecosystem._
 
-[<img src="https://liftoff.io/wp-content/themes/liftoff/images/logo-blue.png" height="30px" alt="Liftoff"/>](https://liftoff.io)
+[<img src="https://liftoff.io/wp-content/themes/liftoff/images/logo-blue.png" height="40px" alt="Liftoff"/>](https://liftoff.io)
+   [<img src="assets/images/cognitect-logo.jpg" height="40px" alt="Cognitect"/>](https://cognitect.com)
+
+Please see [this statement from Cognitect](https://cognitect.com/blog/2020/12/15/sponsoring-open-source-developers) about the importance of supporting open source developers.
 
 Gold sponsors are also displayed here: https://calva.io/#sponsors.
 
@@ -135,8 +151,6 @@ Gold sponsors are also displayed here: https://calva.io/#sponsors.
 [<img src="https://avatars2.githubusercontent.com/u/585191" width="32" alt="Pedro Girardi">](https://github.com/pedrorgirardi)
 [<img src="https://avatars1.githubusercontent.com/u/1461719" width="32" alt="Byron Miller">](https://github.com/supernovae)
 [<img src="https://avatars2.githubusercontent.com/u/6209" width="32" alt="Terje">](https://github.com/terjesb)
-[<img src="https://avatars0.githubusercontent.com/u/11434205" width="32" alt="JC">](https://github.com/dijonkitchen)
-[<img src="https://avatars1.githubusercontent.com/u/13815" width="32" alt="Ullrich Schäfer">](https://github.com/stigi)
 [<img src="https://avatars3.githubusercontent.com/u/703980" width="32" alt="Scott Archer">](https://github.com/scarcher2)
 [<img src="https://avatars0.githubusercontent.com/u/3316334" width="32" alt="Norman Eckstein">](https://github.com/ITSecMedia)
 [<img src="https://avatars0.githubusercontent.com/u/1081640" width="32" alt="David Brear">](https://github.com/DavidBrear)
@@ -148,6 +162,8 @@ Gold sponsors are also displayed here: https://calva.io/#sponsors.
 [<img src="https://avatars2.githubusercontent.com/u/781014" width="32" alt="Snorre Magnus Davøen">](https://github.com/snorremd)
 [<img src="https://avatars1.githubusercontent.com/u/11031952" width="32" alt="Alid Lorenzo">](https://github.com/alidlorenzo)
 [<img src="https://avatars2.githubusercontent.com/u/505737" width="32" alt="ikrima">](https://github.com/ikrima)
+[<img src="https://avatars0.githubusercontent.com/u/583120" width="32" alt="nnichols">](https://github.com/nnichols)
+[<img src="https://avatars0.githubusercontent.com/u/486355" width="32" alt="ajoberstar">](https://github.com/ajoberstar)
 
 ## The Calva Team
 
@@ -170,6 +186,6 @@ We are Clojure and Visual Studio Code fans who care about the ergonomics of usin
 
 Calva is a quite young open source project, with surprisingly many code contributors. We take great care to keep it easy and fun to contribute. See the [Calva Development Wiki](https://github.com/BetterThanTomorrow/calva/wiki) for more on this.
 
-## Happy coding
+## Happy Coding
 
 We hope you will find good use for Calva. Please let us know what you think. PRs welcome, file an issue or chat us up in the [#calva](https://clojurians.slack.com/messages/calva/) channel in the Clojurians Slack.

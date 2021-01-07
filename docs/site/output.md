@@ -1,8 +1,5 @@
 # The Output/REPL Window/File
 
-!!! Note
-    As of version **v2.0.109** the old REPL Window was replaced by the new one described below. Read [this article on ClojureVerse](https://clojureverse.org/t/calva-summer-of-bugs-2020/) for some of the rationale behind the change.
-
 When Calva evaluates Clojure/ClojureScript code, the results are displayed inline as well as printed to the results output window/file. This file is created and opened when Calva is connected to a REPL.
 
 In ClojureScript projects the window will be associated with the `cljs` REPL once this one is connected. It will then look something like so:
@@ -11,7 +8,20 @@ In ClojureScript projects the window will be associated with the `cljs` REPL onc
 
 The first prompt is from when the `clj` REPL is connected, the second when Calva has a `cljs` REPL connection. The first part of the prompt tells you which REPL type the window is currently connected to. This gets important when the file/window is used as an interactive REPL.
 
-## Evaluating code
+## Find the Output/REPL Window
+
+If you quickly want to open and switch to the output window there is the command **Calva: Show Output Window**, `ctrl+alt+c o`.
+
+To sync the Output/REPL window namespace with the current file before switching, use the **Switch Namespace of the Output/REPL Window to Current Namespace** command, `ctrl+alt+c alt+n`.
+
+## Find the File for the Current REPL Window Namespace
+
+When you are working from the Output/REPL window, and want to open the file that defines its current namespace, use the **Show File for the Current Output/REPL Window Namespace** command, `ctrl+alt+c o`.
+
+!!! Note
+    This also works for Clojure core and library namespaces.
+
+## Evaluating Code
 
 The window will be automatically associated with the REPL and the namespace of any project Clojure/ClojureScript file you evaluate code in. So for instance if you evaluate this code in a `clj` file with the namespace `fresh-reagent.handler`:
 
@@ -70,13 +80,47 @@ In the demo gif we utilize two things about this peek widget:
 
 ## Stack Traces
 
-When an evaluation produces an error, the output window will automatically print the stack trace (when available). And when source locations are available (Clojure files) you will be able to navigate to them by pressing `ctrl+click` (`cmd+click` on Mac) on the file name. You can also hover over symbols in the stack trace to see the symbol's documentation, and `ctrl+click` (`cmd+click` on Mac) the symbol to Peek Definition.
+When an evaluation produces an error, the output window will automatically print the the error message. If there is a stack trace associated with the error, this can now be printed on demand using the **Calva: Print Last Stacktrace to the Output Window** command. The output window will also have a Codelense button below the error message that will print the stack trace..
+
+![Print Stacktrace Codelense button](images/howto/output/print-stacktrace-codelense.png "Print Stacktrace Codelense button")
+
+For printed stacktraces, when source locations are available (Clojure files) you will be able to navigate to them by pressing `ctrl+click` (`cmd+click` on Mac) on the file name. You can also hover over symbols in the stack trace to see the symbol's documentation, and `ctrl+click` (`cmd+click` on Mac) the symbol to Peek Definition.
 
 ![Stack trace clicking and peeking definition](images/howto/output/stack-traces.gif "Stack trace clicking and peeking definition")
 
-## Find the Output/REPL Window
+## Load Current Namespace
 
-If you quickly want to open and switch to the output window there is the command **Calva: Show Output Window**, `ctrl+alt+c o`.
+When navigating namespaces it is easy to [forget to first require them](https://clojure.org/guides/repl/navigating_namespaces#_how_things_can_go_wrong) and that can be a bit tricky to fix. To help with this Calva's command **Load Current File** also works in the output window, but then acts like **Load Current Namespace**.
+
+Consider you have two files, `pez/xxx.clj` and `pez/yyy.clj`, where `pez.yyy` requires in `pez.yyy`.
+
+```clojure
+(ns pez.xxx)
+
+(def a :xxx-a)
+
+(def b :xxx-b)
+```
+
+```clojure
+(ns pez.yyy
+  (:require [pez.xxx]))
+
+(def a :yyy-a)
+
+(println "Hello" pez.xxx/a)
+```
+
+Then with a freshly jacked-in REPL you do `(ns pez.yyy)` and want to work with the vars defined there. Clojure will complain. But if you **Load Current File**, it will start working. Something like so:
+
+![Load Current Namespace in the Calva Output Window](images/howto/output/load-current-namespace.png)
+
+!!! Note
+    This currently suffers from a limitation in Calva where it won't reload dependencies, so you will sometimes have to do this ”manually” anyway (by opening the files and loading them). See [Calva issue #907](https://github.com/BetterThanTomorrow/calva/issues/907)
+
+### Peek Current Namespace
+
+A somewhat hidden feature: You can see documentation for, peek and navigate to a namespace by hovering on the namespace symbol in one of the repl window prompts (just like you would if it was not in the prompt 😄).
 
 ## Paredit Enabled
 

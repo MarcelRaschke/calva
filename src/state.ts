@@ -3,6 +3,7 @@ import * as Immutable from 'immutable';
 import * as ImmutableCursor from 'immutable-cursor';
 import Analytics from './analytics';
 import { ReplConnectSequence } from './nrepl/connectSequence';
+import { JackInDependency } from './nrepl/project-types';
 import * as util from './utilities';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -103,6 +104,7 @@ function config() {
         test: configOptions.get("testOnSave"),
         showDocstringInParameterHelp: configOptions.get("showDocstringInParameterHelp") as boolean,
         jackInEnv: configOptions.get("jackInEnv"),
+        jackInDependencyVersions: configOptions.get("jackInDependencyVersions") as { JackInDependency: string },
         openBrowserWhenFigwheelStarted: configOptions.get("openBrowserWhenFigwheelStarted") as boolean,
         customCljsRepl: configOptions.get("customCljsRepl", null),
         replConnectSequences: configOptions.get("replConnectSequences") as ReplConnectSequence[],
@@ -112,38 +114,10 @@ function config() {
         customREPLCommandSnippets: configOptions.get("customREPLCommandSnippets", []) as customREPLCommandSnippet[],
         prettyPrintingOptions: configOptions.get("prettyPrintingOptions") as PrettyPrintingOptions,
         enableJSCompletions: configOptions.get("enableJSCompletions") as boolean,
-        openCalvaSaysOnStart: configOptions.get("openCalvaSaysOnStart") as boolean
+        autoOpenREPLWindow: configOptions.get("autoOpenREPLWindow") as boolean,
+        autoOpenJackInTerminal: configOptions.get("autoOpenJackInTerminal") as boolean,
+        referencesCodeLensEnabled: configOptions.get('referencesCodeLens.enabled') as boolean,
     };
-}
-
-// TODO: Remove this, no longer used
-function getViewColumnFromString(value: string): vscode.ViewColumn {
-    switch (value.trim().toLowerCase()) {
-        case 'active':
-            return (vscode.ViewColumn.Active);
-        case 'beside':
-            return (vscode.ViewColumn.Beside);
-        case 'one':
-            return (vscode.ViewColumn.One);
-        case 'two':
-            return (vscode.ViewColumn.Two);
-        case 'three':
-            return (vscode.ViewColumn.Three);
-        case 'four':
-            return (vscode.ViewColumn.Four);
-        case 'five':
-            return (vscode.ViewColumn.Five);
-        case 'six':
-            return (vscode.ViewColumn.Six);
-        case 'seven':
-            return (vscode.ViewColumn.Seven);
-        case 'eight':
-            return (vscode.ViewColumn.Eight);
-        case 'nine':
-            return (vscode.ViewColumn.Nine);
-        default:
-            return (vscode.ViewColumn.Two);
-    }
 }
 
 const PROJECT_DIR_KEY = "connect.projectDir";
@@ -191,9 +165,9 @@ export function getProjectWsFolder(): vscode.WorkspaceFolder {
  * If there is no project file found, throw an exception.
  */
 export async function initProjectDir(): Promise<void> {
-    const projectFileNames: string[] = ["project.clj", "shadow-cljs.edn", "deps.edn"],
-        workspace = vscode.workspace.workspaceFolders![0],
-        doc = util.getDocument({});
+    const projectFileNames: string[] = ["project.clj", "shadow-cljs.edn", "deps.edn"];
+    const workspace = vscode.workspace.workspaceFolders![0];
+    const doc = util.getDocument({});
 
     // first try the workplace folder
     let workspaceFolder = doc ? vscode.workspace.getWorkspaceFolder(doc.uri) : null;
@@ -204,6 +178,12 @@ export async function initProjectDir(): Promise<void> {
             workspaceFolder = workspace ? vscode.workspace.getWorkspaceFolder(workspace.uri) : null;
         }
     }
+
+    await findLocalProjectRoot(projectFileNames, doc, workspaceFolder);
+    await findProjectRootUri(projectFileNames, doc, workspaceFolder);
+}
+
+async function findLocalProjectRoot(projectFileNames, doc, workspaceFolder): Promise<void> {
     let rootPath: string = path.resolve(workspaceFolder.uri.fsPath);
     cursor.set(PROJECT_DIR_KEY, rootPath);
     cursor.set(PROJECT_DIR_URI_KEY, workspaceFolder.uri);
@@ -243,7 +223,31 @@ export async function initProjectDir(): Promise<void> {
     return;
 }
 
+async function findProjectRootUri(projectFileNames, doc, workspaceFolder): Promise<void> {
+    let searchUri = doc?.uri || workspaceFolder?.uri;
+    let prev = null;
+    while (searchUri != prev) {
+        try {
+            for (let projectFile in projectFileNames) {
+                const u = vscode.Uri.joinPath(searchUri, projectFileNames[projectFile]);
+                try {
+                    await vscode.workspace.fs.stat(u);
+                    cursor.set(PROJECT_DIR_URI_KEY, searchUri);
+                    return;
+                }
+                catch { }
+            }
+        }
+        catch (e) { 
+            console.error(`Problems in search for project root directory: ${e}`);
+        }
+        prev = searchUri;
+        searchUri = vscode.Uri.joinPath(searchUri, "..");
+    }
+}
+
 /**
+ *
  * Tries to resolve absolute path in relation to project root
  * @param filePath - absolute or relative to the project
  */

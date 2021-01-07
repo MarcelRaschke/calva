@@ -13,6 +13,7 @@ import { DEBUG_ANALYTICS } from './debugger/calva-debug';
 import * as namespace from './namespace';
 import * as replHistory from './results-output/repl-history';
 import { formatAsLineComments } from './results-output/util';
+import * as fs from 'fs';
 
 function interruptAllEvaluations() {
     if (util.getConnectedState()) {
@@ -95,15 +96,19 @@ async function evaluateCode(code: string, options, selection?: vscode.Selection)
             });
             // May need to move this inside of onResultsAppended callback above, depending on desired ordering of appended results
             if (err.length > 0) {
-                outputWindow.append(`; ${normalizeNewLinesAndJoin(err, true)}`);
+                const errMsg = `; ${normalizeNewLinesAndJoin(err, true)}`
                 if (context.stacktrace) {
                     outputWindow.saveStacktrace(context.stacktrace);
-                    outputWindow.printLastStacktrace();
+                    outputWindow.append(errMsg, (_, afterResultLocation) => {
+                        outputWindow.markLastStacktraceRange(afterResultLocation);
+                    });
+                } else {
+                    outputWindow.append(errMsg);
                 }
             }
         } catch (e) {
             const outputWindowError = err.length ? `; ${normalizeNewLinesAndJoin(err, true)}` : formatAsLineComments(e);
-            outputWindow.append(outputWindowError, async (resultLocation) => {
+            outputWindow.append(outputWindowError, async (resultLocation, afterResultLocation) => {
                 if (selection) {
                     const editor = vscode.window.activeTextEditor;
                     const editorError = util.stripAnsi(err.length ? err.join("\n") : e);
@@ -116,10 +121,12 @@ async function evaluateCode(code: string, options, selection?: vscode.Selection)
                         addAsComment(selection.start.character, editorError, selection, editor, selection);
                     }
                 }
+                if (context.stacktrace && context.stacktrace.stacktrace) {
+                    outputWindow.markLastStacktraceRange(afterResultLocation);
+                }
             });
             if (context.stacktrace && context.stacktrace.stacktrace) {
                 outputWindow.saveStacktrace(context.stacktrace.stacktrace);
-                outputWindow.printLastStacktrace();
             }
         }
         outputWindow.setSession(session, context.ns || ns);
@@ -211,22 +218,26 @@ function evaluateCurrentForm(document = {}, options = {}) {
 async function loadFile(document, pprintOptions: PrettyPrintingOptions) {
     const current = state.deref();
     const doc = util.getDocument(document);
-    const fileName = util.getFileName(doc);
     const fileType = util.getFileType(doc);
     const ns = namespace.getNamespace(doc);
     const session = namespace.getSession(util.getFileType(doc));
-    const shortFileName = path.basename(fileName);
-    const dirName = path.dirname(fileName);
 
-    if (doc && !outputWindow.isResultsDoc(doc) && doc.languageId == "clojure" && fileType != "edn" && current.get('connected')) {
+    if (doc && doc.languageId == "clojure" && fileType != "edn" && current.get('connected')) {
         state.analytics().logEvent("Evaluation", "LoadFile").send();
+        const [fileName, filePath] = outputWindow.isResultsDoc(doc) ?
+            await outputWindow.getFilePathForCurrentNameSpace() :
+            [util.getFileName(doc), doc.fileName];
+        const shortFileName = path.basename(fileName);
+        const dirName = path.dirname(fileName);
+        const fileContents = await util.getFileContents(filePath);
+
         outputWindow.append("; Evaluating file: " + fileName);
 
         await session.eval("(in-ns '" + ns + ")", session.client.ns).value;
 
-        const res = session.loadFile(doc.getText(), {
+        const res = session.loadFile(fileContents, {
             fileName: fileName,
-            filePath: doc.fileName,
+            filePath,
             stdout: m => outputWindow.append(normalizeNewLines(m.indexOf(dirName) < 0 ? m.replace(shortFileName, fileName) : m)),
             stderr: m => outputWindow.append('; ' + normalizeNewLines(m.indexOf(dirName) < 0 ? m.replace(shortFileName, fileName) : m, true)),
             pprintOptions: pprintOptions
@@ -375,11 +386,17 @@ async function evaluateCustomCommandSnippetCommand(): Promise<void> {
                 saveAs: "runCustomREPLCommand"
             });
             if (pick && snippetsDict[pick] && snippetsDict[pick].snippet) {
-                const command = snippetsDict[pick].snippet;
                 const editor = vscode.window.activeTextEditor;
+                const currentLine = editor.selection.active.line;
+                const currentColumn = editor.selection.active.character;
+                const currentFilename = editor.document.fileName;
                 const editorNS = editor && editor.document && editor.document.languageId === 'clojure' ? namespace.getNamespace(editor.document) : undefined;
                 const ns = snippetsDict[pick].ns ? snippetsDict[pick].ns : editorNS;
                 const repl = snippetsDict[pick].repl ? snippetsDict[pick].repl : "clj";
+                const command = snippetsDict[pick].snippet.
+                     replace("$line", currentLine).
+                     replace("$column", currentColumn).
+                     replace("$file", currentFilename);
                 await evaluateInOutputWindow(command, repl ? repl : "clj", ns);
             }
         } catch (e) {

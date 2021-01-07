@@ -8,7 +8,7 @@ import * as util from './utilities'
 import status from './status';
 import connector from './connector';
 import CalvaCompletionItemProvider from './providers/completion';
-import TextDocumentContentProvider from './providers/content';
+import JarContentProvider from './providers/content';
 import HoverProvider from './providers/hover';
 import * as definition from './providers/definition';
 import { CalvaSignatureHelpProvider } from './providers/signature';
@@ -23,9 +23,14 @@ import * as open from 'open';
 import statusbar from './statusbar';
 import * as debug from './debugger/calva-debug';
 import * as model from './cursor-doc/model';
+import { LanguageClient } from 'vscode-languageclient';
 import * as outputWindow from './results-output/results-doc';
 import * as replHistory from './results-output/repl-history';
 import config from './config';
+import handleNewCljFiles from './fileHandler';
+import lsp from './lsp';
+
+let lspClient: LanguageClient;
 
 async function onDidSave(document) {
     let {
@@ -61,6 +66,7 @@ function setKeybindingsEnabledContext() {
 }
 
 function activate(context: vscode.ExtensionContext) {
+    lspClient = lsp.activate(context);
     state.cursor.set('analytics', new Analytics(context));
     state.analytics().logPath("/start").logEvent("LifeCycle", "Started").send();
 
@@ -81,6 +87,8 @@ function activate(context: vscode.ExtensionContext) {
     const VIM_DOC_URL = "https://calva.io/vim/";
     const VIEWED_VIM_DOCS = "viewedVimDocs";
     const CONNECT_SEQUENCES_DOC_URL = "https://calva.io/connect-sequences/";
+    const CALVA_DOCS_URL = "https://calva.io/";
+    const VIEWED_CALVA_DOCS = "viewedCalvaDocs";
 
     if (customCljsRepl && replConnectSequences.length == 0) {
         chan.appendLine("Old customCljsRepl settings detected.");
@@ -93,7 +101,7 @@ function activate(context: vscode.ExtensionContext) {
     }
 
     if (legacyExtension) {
-        vscode.window.showErrorMessage("Calva Legacy extension detected. Things will break. Please uninstall, or disable, the old Calva extension.", ...["Roger that. Right away!"])
+        vscode.window.showErrorMessage("Calva Legacy extension detected. Things will break. Please uninstall, or disable, the old Calva extension.", "Roger that. Right away!")
     }
 
     state.setExtensionContext(context);
@@ -105,7 +113,7 @@ function activate(context: vscode.ExtensionContext) {
             console.error("Failed activating Formatter: " + e.message)
         }
     } else {
-        vscode.window.showErrorMessage("Calva Format extension detected, which will break things. Please uninstall or, disable, it before continuing using Calva.", ...["Got it. Will do!"]);
+        vscode.window.showErrorMessage("Calva Format extension detected, which will break things. Please uninstall or, disable, it before continuing using Calva.", "Got it. Will do!");
     }
     if (!pareEditExtension) {
         try {
@@ -114,13 +122,9 @@ function activate(context: vscode.ExtensionContext) {
             console.error("Failed activating Paredit: " + e.message)
         }
     } else {
-        vscode.window.showErrorMessage("Calva Paredit extension detected, which will cause problems. Please uninstall, or disable, it.", ...["I hear ya. Doing it!"]);
+        vscode.window.showErrorMessage("Calva Paredit extension detected, which will cause problems. Please uninstall, or disable, it.", "I hear ya. Doing it!");
     }
 
-    chan.appendLine("Calva activated.");
-    if (state.config().openCalvaSaysOnStart) {
-        chan.show(true);
-    }
     status.update();
 
     // COMMANDS
@@ -159,9 +163,11 @@ function activate(context: vscode.ExtensionContext) {
         outputWindow.appendPrompt();
     }));
     context.subscriptions.push(vscode.commands.registerCommand('calva.showOutputWindow', () => { outputWindow.revealResultsDoc(false) }));
+    context.subscriptions.push(vscode.commands.registerCommand('calva.showFileForOutputWindowNS', () => { outputWindow.revealDocForCurrentNS(false) }));
     context.subscriptions.push(vscode.commands.registerCommand('calva.setOutputWindowNamespace', outputWindow.setNamespaceFromCurrentFile));
     context.subscriptions.push(vscode.commands.registerCommand('calva.sendCurrentFormToOutputWindow', outputWindow.appendCurrentForm));
     context.subscriptions.push(vscode.commands.registerCommand('calva.sendCurrentTopLevelFormToOutputWindow', outputWindow.appendCurrentTopLevelForm));
+    context.subscriptions.push(vscode.commands.registerCommand('calva.printLastStacktrace', outputWindow.printLastStacktrace));
     context.subscriptions.push(vscode.commands.registerCommand('calva.showPreviousReplHistoryEntry', replHistory.showPreviousReplHistoryEntry));
     context.subscriptions.push(vscode.commands.registerCommand('calva.showNextReplHistoryEntry', replHistory.showNextReplHistoryEntry));
     context.subscriptions.push(vscode.commands.registerCommand('calva.clearReplHistory', replHistory.clearHistory));
@@ -169,6 +175,16 @@ function activate(context: vscode.ExtensionContext) {
         let keybindingsEnabled = vscode.workspace.getConfiguration().get(config.KEYBINDINGS_ENABLED_CONFIG_KEY);
         vscode.workspace.getConfiguration().update(config.KEYBINDINGS_ENABLED_CONFIG_KEY, !keybindingsEnabled, vscode.ConfigurationTarget.Global);
     }));
+    context.subscriptions.push(vscode.commands.registerCommand('calva.openCalvaDocs', () => {
+        context.globalState.update(VIEWED_CALVA_DOCS, true);
+        open(CALVA_DOCS_URL)
+            .then(() => {
+                state.analytics().logEvent("Calva", "Docs opened");
+            })
+            .catch((e) => {
+                console.error(`Problems visiting calva docs: ${e}`);
+            });
+    }))
 
     // Temporary command to teach new default keyboard shortcut chording key
     context.subscriptions.push(vscode.commands.registerCommand('calva.tellAboutNewChordingKey', () => {
@@ -191,7 +207,7 @@ function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.languages.registerSignatureHelpProvider(state.documentSelector, new CalvaSignatureHelpProvider(), ' ', ' '));
 
 
-    vscode.workspace.registerTextDocumentContentProvider('jar', new TextDocumentContentProvider());
+    vscode.workspace.registerTextDocumentContentProvider('jar', new JarContentProvider());
 
     // //EVENTS
     context.subscriptions.push(vscode.workspace.onDidOpenTextDocument((document) => {
@@ -231,6 +247,7 @@ function activate(context: vscode.ExtensionContext) {
             setKeybindingsEnabledContext();
         }
     }));
+    context.subscriptions.push(vscode.workspace.onDidCreateFiles(handleNewCljFiles));
 
     // Clojure debug adapter setup
     const provider = new debug.CalvaDebugConfigurationProvider();
@@ -244,6 +261,16 @@ function activate(context: vscode.ExtensionContext) {
     vscode.commands.executeCommand('setContext', 'calva:activated', true);
 
     greetings.activationGreetings(chan);
+
+    if (!context.globalState.get(VIEWED_CALVA_DOCS)) {
+        vscode.window.showInformationMessage("Calva is activated. Please use the command **Calva: Open Documentation** to visit calva.io for instructions on how to connect Calva to the REPL. (This message will keep showing on start of Calva until you've used the command.)", ...[BUTTON_OK])
+            .then(v => {
+                if (v == BUTTON_OK) {
+                    state.analytics().logEvent("LifeCycle", "Greetings dismissed")
+                }
+            })
+    }
+
 
     if (vimExtension) {
         chan.appendLine(`VIM Extension detected. Please read: ${VIM_DOC_URL} now and then.\n`);
@@ -283,10 +310,13 @@ function activate(context: vscode.ExtensionContext) {
     }
 }
 
-function deactivate() {
+async function deactivate() {
     state.analytics().logEvent("LifeCycle", "Deactivated").send();
     jackIn.calvaJackout();
-    paredit.deactivate()
+    paredit.deactivate();
+    if (lspClient) {
+        await lspClient.stop();
+    }
 }
 
 export { activate, deactivate };

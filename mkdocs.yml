@@ -9,6 +9,9 @@ extra_css:
   - stylesheets/extra.css
 site_url: https://calva.io
 site_description: Learn how to use Calva to boost your Clojure and ClojureScript coding in VS Code.
+google_analytics:
+  - UA-69796730-5
+  - auto
 repo_name: Calva
 repo_url: https://github.com/BetterThanTomorrow/calva
 edit_uri: edit/master/docs/site
@@ -23,6 +26,7 @@ nav:
     - try-first.md
     - finding-commands.md
     - eval-tips.md
+    - clojure-lsp.md
   - Features:
     - commands-top10.md
     - output.md
@@ -30,13 +34,16 @@ nav:
     - paredit.md
     - debugger.md
     - pprint.md
+    - refactoring.md
     - test-runner.md
     - connect-sequences.md
     - custom-commands.md
     - linting.md
+    - ns-form-deriving.md
   - customizing.md
   - Using Calva with X:
     - rebl.md
+    - reveal.md
     - vim.md
     - wsl.md
     - remote-development.md
